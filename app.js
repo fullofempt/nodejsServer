@@ -5,18 +5,39 @@ const path = require('path');
 const { initTicTacToe } = require('./ticTacToe');
 
 const app = express();
+app.use(express.json());
 const server = http.createServer(app);
 const io = socketIO(server);
 
 const port = 3000;
 
-const activeSessions = {}; //массив для сессий
-const activePlayers = {}; //массив для сессий
+
+
+let gameStates = {};
+let activeSessions = {
+    sessionId: [
+        "Session 1",
+        "Session 2",
+    ]
+}; //массив для сессий
+let activePlayers = {
+    players: [
+        "Игрок 1",
+        "Игрок 2",
+        "Игрок 3",
+    ],
+    playerId: [
+        "Игрок 11",
+        "Игрок 22",
+        "Игрок 33",
+    ]
+}; //массив для сессий
 
 // Функция создания рандомного айдишника
 function generateId() {
     return Math.random().toString(36).substring(2, 9);
 }
+
 
 
 // Создание новой сессии
@@ -30,7 +51,7 @@ app.post('/user/add', (req, res) => {
 //вывод всех существующик игроков
 app.get("/user/get", (req, res) => {
     const allPlayers = Object.values(activePlayers);
-    сonsole.log('Все игроки:', allPlayers);
+    console.log('Все игроки:', allPlayers);
     res.status(200).json(allPlayers);
 })
 
@@ -55,19 +76,20 @@ app.get("/session/get/:sessionId", (req, res) => {
 
 app.get("/session/get_all", (req, res) => {
     const allSessions = Object.values(activeSessions);
-    сonsole.log('Все Cессии:', allSessions);
+    console.log('Все Cессии:', allSessions);
     res.status(200).json(allSessions);
 })
-app.post('/session/join/:sessionId', (req, res) => {
-    const sessionId = req.params.sessionId;
-    if (activeSessions[sessionId]) {
-        const playerId = Math.random().toString(36).substring(2, 9);
-        activeSessions[sessionId].players.push(playerId);
-        res.send(`Сессия ID: ${sessionId}, ID Игрока: ${playerId}`);
-    } else {
-        res.status(404).json({ error: 'Сессия не найдена' });
-    }
-});
+
+// app.post('/session/join/:sessionId', (req, res) => {
+//     const sessionId = req.params.sessionId;
+//     if (activeSessions[sessionId]) {
+//         const playerId = Math.random().toString(36).substring(2, 9);
+//         activeSessions[sessionId].players.push(playerId);
+//         res.send(`Сессия ID: ${sessionId}, ID Игрока: ${playerId}`);
+//     } else {
+//         res.status(404).json({ error: 'Сессия не найдена' });
+//     }
+// });
 
 // Присоединение к существующей сессии
 app.post('/session/join/:sessionId', (req, res) => {
@@ -81,7 +103,7 @@ app.post('/session/join/:sessionId', (req, res) => {
     }
 });
 
-app.post('/api/session/:sessionId/play', (req, res) => {
+app.post('/session/:sessionId/play', (req, res) => {
     const sessionId = req.params.sessionId;
     const playerId = req.body.playerId;
 
@@ -89,7 +111,7 @@ app.post('/api/session/:sessionId/play', (req, res) => {
     if (!gameStates[sessionId]) {
         gameStates[sessionId] = {
             currentPlayer: 'X', // Начальный игрок
-            board: ['', '', '', '', '', '', '', '', ''] // Игровое поле размером 3x3 (9 ячеек)
+            board: ['', '', '', '', '', '', '', '', ''] 
         };
     }
 
