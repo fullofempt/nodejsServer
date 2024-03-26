@@ -5,180 +5,105 @@ const path = require('path');
 const { initTicTacToe } = require('./ticTacToe');
 
 const app = express();
-app.use(express.json());
 const server = http.createServer(app);
 const io = socketIO(server);
 
 const port = 3000;
 
-
-
 let gameStates = {};
-let activeSessions = {
-    sessionId: [
-        "Session 1",
-        "Session 2",
-    ]
-}; //массив для сессий
+let activeSessions = {};
 let activePlayers = {
-    players: [
-        "Игрок 1",
-        "Игрок 2",
-        "Игрок 3",
-    ],
-    playerId: [
-        "Игрок 11",
-        "Игрок 22",
-        "Игрок 33",
-    ]
-}; //массив для сессий
+    players: []   // массив для объектов игроков
+};
 
-// Функция создания рандомного айдишника
+
+
 function generateId() {
     return Math.random().toString(36).substring(2, 9);
 }
+// key - id; value - name
+// const activePlayers = ["", ""]
 
-
-
-// Создание новой сессии
-app.post('/user/add', (req, res) => {
-    const playerId = generateId();
-    activePlayers[playerId] = { name: req.body.name }; //имя игрока передается в теле запроса
-    console.log('Игрок создан:', activePlayers[playerId]);
-    res.status(200).json({ playerId });
-});
-
-//вывод всех существующик игроков
-app.get("/user/get", (req, res) => {
-    const allPlayers = Object.values(activePlayers);
-    console.log('Все игроки:', allPlayers);
-    res.status(200).json(allPlayers);
-})
-
-
-
-app.post('/session/create/', (req, res) => {
-    const sessionId = generateId();
-    activeSessions[sessionId] = { id: sessionId };
-    console.log('Сессия создалась:', activeSessions[sessionId]);
-    res.status(200).json({ sessionId });
-})
-
-app.get("/session/get/:sessionId", (req, res) => {
-    const sessionId = req.params.sessionId;
-    if (activeSessions[sessionId]) {
-        console.log('Сессия:', activeSessions[sessionId]);
-        res.status(200).json(activeSessions[sessionId]); 
-    } else {
-        res.status(404).json({ error: 'Сессия не найдена' });
-    }
-})
-
-app.get("/session/get_all", (req, res) => {
-    const allSessions = Object.values(activeSessions);
-    console.log('Все Cессии:', allSessions);
-    res.status(200).json(allSessions);
-})
-
-// app.post('/session/join/:sessionId', (req, res) => {
-//     const sessionId = req.params.sessionId;
-//     if (activeSessions[sessionId]) {
-//         const playerId = Math.random().toString(36).substring(2, 9);
-//         activeSessions[sessionId].players.push(playerId);
-//         res.send(`Сессия ID: ${sessionId}, ID Игрока: ${playerId}`);
-//     } else {
-//         res.status(404).json({ error: 'Сессия не найдена' });
-//     }
-// });
-
-// Присоединение к существующей сессии
-app.post('/session/join/:sessionId', (req, res) => {
-    const sessionId = req.params.sessionId;
-    if (activeSessions[sessionId]) {
-        const playerId = Math.random().toString(36).substring(2, 9);
-        activeSessions[sessionId].players.push(playerId);
-        res.send(`Joined session with session ID: ${sessionId}, player ID: ${playerId}`);
-    } else {
-        res.status(404).json({ error: 'Сессия не найдена' });
-    }
-});
-
-app.post('/session/:sessionId/play', (req, res) => {
-    const sessionId = req.params.sessionId;
-    const playerId = req.body.playerId;
-
-    // Создание нового экземпляра игры, если он не существует
-    if (!gameStates[sessionId]) {
-        gameStates[sessionId] = {
-            currentPlayer: 'X', // Начальный игрок
-            board: ['', '', '', '', '', '', '', '', ''] 
-        };
-    }
-
-    res.status(200).json(gameStates[sessionId]);
-});
-
-// Определение маршрута для хода игрока в игре крестики-нолики
-app.post('/session/:sessionId/move', (req, res) => {
-    const sessionId = req.params.sessionId;
-    const playerId = req.body.playerId;
-    const cellIndex = req.body.cellIndex;
-
-    if (!gameStates[sessionId]) {
-        return res.status(404).json({ error: 'Игра не найдено' });
-    }
-
-    const gameState = gameStates[sessionId];
-
-    // является ли текущий игрок действительным игроком в сессии
-
-    if (gameState.currentPlayer !== playerId) {
-        return res.status(403).json({ error: 'Не твой ход' });
-    }
-
-    // является ли выбранная ячейка пустой
-    if (gameState.board[cellIndex] !== '') {
-        return res.status(400).json({ error: 'Клетка занята' });
-    }
-
-    // Установка метки текущего игрока в выбранной ячейке
-    gameState.board[cellIndex] = gameState.currentPlayer;
-
-    // Смена текущего игрока
-    gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
-
-    res.status(200).json(gameState);
-});
-
-// Определение маршрута для получения текущего состояния игры
-app.get('/session/:sessionId/state', (req, res) => {
-    const sessionId = req.params.sessionId;
-
-    if (!gameStates[sessionId]) {
-        return res.status(404).json({ error: 'Игра не найдена' });
-    }
-
-    res.status(200).json(gameStates[sessionId]);
-});
-
-// Разрешаем доступ к статическим файлам
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Рендерим HTML страницу
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Обработка события с помощью сокетов
 io.on('connection', (socket) => {
     console.log('A user connected.');
-    initTicTacToe(socket); 
 
+    // Добавление нового игрока //Это работает не трогать!!!
+    socket.on('addPlayer', (playerName) => {
+        const playerId = generateId();
+        const player = { name: playerName, id: playerId }; // Создание объекта игрока
+  
+        activePlayers.players.push(player); // Добавление нового игрока
+        console.log('Player added:', playerName);
+        socket.emit('playerAdded', { playerName }); // Отправка подтверждения клиенту
+    });
+
+    //удаление последнего игрока //Это говно не работает, думаю и не надо его делать, после закрытия все равно чистится память
+    socket.on('deletePlayer', (deleteId) => {
+        const deletePlayer = activePlayers.playerId.pop();
+        // activePlayers = activePlayers.filter(i => i != deleteId);
+        console.log('Player deleted:', deletePlayer);
+        socket.emit('Player deleted', { playerId: deletePlayer });
+    });
+
+    //Вывод всех игроков // Это работает, не трогать!!!
+    socket.on('allPlayer', () => {
+        const allPLayer = activePlayers;
+        console.log('allPlayer:', allPLayer);
+        socket.emit('allPlayer', { players: allPLayer });
+    });
+
+    // Создание новой сессии //WIP надо подумать над тем как присвоить id к Players (вроде сделал, но чет криво)
+    socket.on('createSession', () => {
+        const sessionId = generateId();
+        activePlayers.players.push = {sessionId: sessionId}
+        activeSessions[sessionId] = { id: sessionId };
+        console.log('Session created:', activeSessions[sessionId]);
+        socket.emit('sessionCreated', { sessionId });
+    });
+
+    // Присоединение к существующей сессии // Это сделать!!!
+    socket.on('joinSession', (sessionId) => {
+        if (activeSessions[sessionId]) {
+            // const playerId = generateId();
+            activeSessions[sessionId].players.push(playerId);
+            socket.emit('sessionJoined', { sessionId, playerId });
+        } else {
+            socket.emit('sessionError', { error: 'Session not found' });
+        }
+    });
+
+    // Отправка текущего состояния игры // Это тоже наверное не надо хранить
+    socket.on('requestGameState', (sessionId) => {
+        const gameState = gameStates[sessionId];
+        if (gameState) {
+            socket.emit('gameState', gameState);
+        } else {
+            socket.emit('gameStateError', { error: 'Game not found' });
+        }
+    });
+
+    // Обработка хода игрока // Это сделать, пока еще не трогал
+    socket.on('move', ({ sessionId, playerId, cellIndex }) => {
+        const gameState = gameStates[sessionId];
+        if (gameState) {
+            if (gameState.currentPlayer === playerId && gameState.board[cellIndex] === '') {
+                gameState.board[cellIndex] = gameState.currentPlayer;
+                gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
+                io.to(sessionId).emit('gameState', gameState);
+            } else {
+                socket.emit('moveError', { error: 'Invalid move' });
+            }
+        } else {
+            socket.emit('moveError', { error: 'Game not found' });
+        }
+    });
+
+    // Обработка отключения клиента
     socket.on('disconnect', () => {
         console.log('A user disconnected.');
     });
 });
 
 server.listen(port, () => {
-    console.log(`Server running on port: ${port}`);
+    console.log('Server running on port: ${port}');
 });
